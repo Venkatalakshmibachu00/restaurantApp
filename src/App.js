@@ -27,37 +27,6 @@ class App extends Component {
     this.getMenuDetails()
   }
 
-  //   getMenuDetails = async () => {
-  //     this.setState({apiStatus: apiStatusConstants.inProgress})
-
-  //     try {
-  //       const response = await fetch(API_URL)
-  //       if (!response.ok) {
-  //         throw new Error('Network response was not ok')
-  //       }
-  //       const data = await response.json()
-  //       const menuData = data[0]
-
-  //       const initialQuantities = {}
-  //       menuData.table_menu_list?.forEach(category => {
-  //         category.category_dishes?.forEach(dish => {
-  //           initialQuantities[dish.dish_id] = 0
-  //         })
-  //       })
-
-  //       this.setState({
-  //         categories: menuData.table_menu_list ?? [],
-  //         dishes: menuData.table_menu_list?.[0]?.category_dishes ?? [],
-  //         restaurantData: menuData,
-  //         quantities: initialQuantities,
-  //         apiStatus: apiStatusConstants.success,
-  //       })
-  //     } catch (error) {
-  //       console.error('Error fetching data:', error)
-  //       this.setState({apiStatus: apiStatusConstants.failure})
-  //     }
-  //   }
-
   getMenuDetails = async () => {
     this.setState({apiStatus: apiStatusConstants.inProgress})
 

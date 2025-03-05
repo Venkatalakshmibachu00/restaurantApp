@@ -1,200 +1,249 @@
-import {useState, useEffect} from 'react'
+import React, {Component} from 'react'
+import Loader from 'react-loader-spinner'
 import Header from './components/Header'
 import './App.css'
 
 const API_URL =
   'https://apis2.ccbp.in/restaurant-app/restaurant-menu-list-details'
 
-const INITIAL_VIEW = 'INITIAL_VIEW'
-const SUCCESS_VIEW = 'SUCCESS_VIEW'
-const FAILURE_VIEW = 'FAILURE_VIEW'
-
-const fetchMenuDetails = async () => {
-  try {
-    const response = await fetch(API_URL)
-    if (!response.ok) {
-      throw new Error('Network response was not ok')
-    }
-    const data = await response.json()
-    return data[0]
-  } catch (error) {
-    console.error('Error fetching data:', error)
-    throw error
-  }
+const apiStatusConstants = {
+  initial: 'INITIAL',
+  success: 'SUCCESS',
+  failure: 'FAILURE',
+  inProgress: 'IN_PROGRESS',
 }
 
-const App = () => {
-  const [categories, setCategories] = useState([])
-  const [dishes, setDishes] = useState([])
-  const [cartCount, setCartCount] = useState(0)
-  const [restaurantData, setRestaurantData] = useState(null)
-  const [quantities, setQuantities] = useState({})
-  const [apiStatus, setApiStatus] = useState(INITIAL_VIEW)
+class App extends Component {
+  state = {
+    categories: [],
+    dishes: [],
+    cartCount: 0,
+    restaurantData: null,
+    quantities: {},
+    apiStatus: apiStatusConstants.initial,
+  }
 
-  useEffect(() => {
-    const getMenuDetails = async () => {
-      setApiStatus(INITIAL_VIEW)
-      try {
-        const data = await fetchMenuDetails()
-        if (data) {
-          setCategories(data.table_menu_list ?? [])
-          setDishes(data.table_menu_list?.[0]?.category_dishes ?? [])
-          setRestaurantData(data)
+  componentDidMount() {
+    this.getMenuDetails()
+  }
 
-          const initialQuantities = {}
-          data.table_menu_list?.forEach(category => {
-            category.category_dishes?.forEach(dish => {
-              initialQuantities[dish.dish_id] = 0
-            })
-          })
-          setQuantities(initialQuantities)
+  //   getMenuDetails = async () => {
+  //     this.setState({apiStatus: apiStatusConstants.inProgress})
 
-          setApiStatus(SUCCESS_VIEW)
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error)
-        setApiStatus(FAILURE_VIEW)
-      }
+  //     try {
+  //       const response = await fetch(API_URL)
+  //       if (!response.ok) {
+  //         throw new Error('Network response was not ok')
+  //       }
+  //       const data = await response.json()
+  //       const menuData = data[0]
+
+  //       const initialQuantities = {}
+  //       menuData.table_menu_list?.forEach(category => {
+  //         category.category_dishes?.forEach(dish => {
+  //           initialQuantities[dish.dish_id] = 0
+  //         })
+  //       })
+
+  //       this.setState({
+  //         categories: menuData.table_menu_list ?? [],
+  //         dishes: menuData.table_menu_list?.[0]?.category_dishes ?? [],
+  //         restaurantData: menuData,
+  //         quantities: initialQuantities,
+  //         apiStatus: apiStatusConstants.success,
+  //       })
+  //     } catch (error) {
+  //       console.error('Error fetching data:', error)
+  //       this.setState({apiStatus: apiStatusConstants.failure})
+  //     }
+  //   }
+
+  getMenuDetails = async () => {
+    this.setState({apiStatus: apiStatusConstants.inProgress})
+
+    const response = await fetch(API_URL)
+
+    if (response.ok) {
+      const fetchedData = await response.json()
+      const menuData = fetchedData[0]
+
+      const initialQuantities = {}
+      menuData.table_menu_list?.forEach(category => {
+        category.category_dishes?.forEach(dish => {
+          initialQuantities[dish.dish_id] = 0
+        })
+      })
+
+      this.setState({
+        categories: menuData.table_menu_list ?? [],
+        dishes: menuData.table_menu_list?.[0]?.category_dishes ?? [],
+        restaurantData: menuData,
+        quantities: initialQuantities,
+        apiStatus: apiStatusConstants.success,
+      })
+    } else {
+      this.setState({
+        apiStatus: apiStatusConstants.failure,
+      })
     }
-    getMenuDetails()
-  }, [])
+  }
 
-  const handleSelectCategory = categoryId => {
+  handleSelectCategory = categoryId => {
+    const {categories} = this.state
     const selectedCat = categories.find(
       cat => cat.menu_category_id === categoryId,
     )
-    setDishes(selectedCat?.category_dishes ?? [])
+    this.setState({dishes: selectedCat?.category_dishes ?? []})
   }
 
-  const handleAddToCart = dishId => {
-    setQuantities(prevQuantities => {
-      const currentQuantity = prevQuantities[dishId] || 0
+  handleAddToCart = dishId => {
+    this.setState(prevState => {
+      const currentQuantity = prevState.quantities[dishId] || 0
       const newQuantity = currentQuantity + 1
 
-      // Increase cart count only when item is added for the first time
       if (currentQuantity === 0) {
-        setCartCount(prevCount => prevCount + 1)
+        return {
+          quantities: {...prevState.quantities, [dishId]: newQuantity},
+          cartCount: prevState.cartCount + 1,
+        }
       }
 
-      return {...prevQuantities, [dishId]: newQuantity}
+      return {
+        quantities: {...prevState.quantities, [dishId]: newQuantity},
+      }
     })
   }
 
-  const handleRemoveFromCart = dishId => {
-    setQuantities(prevQuantities => {
-      const currentQuantity = prevQuantities[dishId] || 0
+  handleRemoveFromCart = dishId => {
+    this.setState(prevState => {
+      const currentQuantity = prevState.quantities[dishId] || 0
       if (currentQuantity > 0) {
         const newQuantity = currentQuantity - 1
 
-        // Decrease cart count only when the item's quantity becomes 0
         if (newQuantity === 0) {
-          setCartCount(prevCount => prevCount - 1)
+          return {
+            quantities: {...prevState.quantities, [dishId]: newQuantity},
+            cartCount: prevState.cartCount - 1,
+          }
         }
 
-        return {...prevQuantities, [dishId]: newQuantity}
+        return {
+          quantities: {...prevState.quantities, [dishId]: newQuantity},
+        }
       }
-      return prevQuantities
+      return prevState
     })
   }
 
-  const renderView = () => {
-    switch (apiStatus) {
-      case INITIAL_VIEW:
-        return <p>Loading menu details...</p>
+  renderLoadingView = () => (
+    <div className="loader-container">
+      <Loader type="ThreeDots" color="#0b69ff" height="50" width="50" />
+    </div>
+  )
 
-      case SUCCESS_VIEW:
-        return (
-          <>
-            <div>
-              <Header
-                restaurantName={restaurantData?.restaurant_name}
-                cartCount={cartCount}
-              />
-              {/* Category List */}
-              <div className="category-list">
-                {categories.map(category => (
-                  <button
-                    type="button"
-                    className="button"
-                    key={category.menu_category_id}
-                    onClick={() =>
-                      handleSelectCategory(category.menu_category_id)
-                    }
-                  >
-                    {category.menu_category}
-                  </button>
-                ))}
-              </div>
+  renderFailureView = () => (
+    <p>We are having some trouble processing your request. Please try again.</p>
+  )
 
-              {/* Dish List */}
-              <div className="dish-list">
-                {dishes.length > 0 ? (
-                  dishes.map(dish => (
-                    <div key={dish.dish_id} className="dish-item">
-                      <div className="each_dish_item">
-                        <h2 className="name">{dish.dish_name}</h2>
-                        <p>
-                          {dish.dish_currency} {dish.dish_price}
-                        </p>
-                        <p>{dish.dish_description}</p>
-                        {dish.addonCat && dish.addonCat.length > 0 && (
-                          <p>Customizations available</p>
-                        )}
-                        <p>{dish.dish_Availability ? '' : 'Not available'}</p>
+  renderSuccessView = () => {
+    const {categories, dishes, restaurantData, cartCount, quantities} =
+      this.state
 
-                        {/* Dish Quantity Controls */}
-                        <div className="controls">
-                          {dish.dish_Availability && (
-                            <>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() =>
-                                  handleRemoveFromCart(dish.dish_id)
-                                }
-                                disabled={quantities[dish.dish_id] === 0} // Prevent decrement below 0
-                              >
-                                -
-                              </button>
-                              <p>{quantities[dish.dish_id] || 0}</p>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => handleAddToCart(dish.dish_id)}
-                              >
-                                +
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <p>{dish.dish_calories} calories</p>
-                      <div>
-                        <img
-                          className="image"
-                          src={dish.dish_image}
-                          alt={dish.dish_name}
-                        />
-                      </div>
+    return (
+      <>
+        <div>
+          <Header
+            restaurantName={restaurantData?.restaurant_name}
+            cartCount={cartCount}
+          />
+          <div className="category-list">
+            {categories.map(category => (
+              <button
+                type="button"
+                className="button"
+                key={category.menu_category_id}
+                onClick={() =>
+                  this.handleSelectCategory(category.menu_category_id)
+                }
+              >
+                {category.menu_category}
+              </button>
+            ))}
+          </div>
+
+          <div className="dish-list">
+            {dishes.length > 0 ? (
+              dishes.map(dish => (
+                <div key={dish.dish_id} className="dish-item">
+                  <div className="each_dish_item">
+                    <h2 className="name">{dish.dish_name}</h2>
+                    <p>
+                      {dish.dish_currency} {dish.dish_price}
+                    </p>
+                    <p>{dish.dish_description}</p>
+                    {dish.addonCat && dish.addonCat.length > 0 && (
+                      <p>Customizations available</p>
+                    )}
+                    <p>{dish.dish_Availability ? '' : 'Not available'}</p>
+
+                    <div className="controls">
+                      {dish.dish_Availability && (
+                        <>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() =>
+                              this.handleRemoveFromCart(dish.dish_id)
+                            }
+                            disabled={quantities[dish.dish_id] === 0}
+                          >
+                            -
+                          </button>
+                          <p>{quantities[dish.dish_id] || 0}</p>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => this.handleAddToCart(dish.dish_id)}
+                          >
+                            +
+                          </button>
+                        </>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <p>No dishes available</p>
-                )}
-              </div>
-            </div>
-          </>
-        )
+                  </div>
+                  <p>{dish.dish_calories} calories</p>
+                  <div>
+                    <img
+                      className="image"
+                      src={dish.dish_image}
+                      alt={dish.dish_name}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p>No dishes available</p>
+            )}
+          </div>
+        </div>
+      </>
+    )
+  }
 
-      case FAILURE_VIEW:
-        return <p>Failed to load menu details. Please try again later.</p>
+  render() {
+    const {apiStatus} = this.state
 
+    switch (apiStatus) {
+      case apiStatusConstants.inProgress:
+        return this.renderLoadingView()
+      case apiStatusConstants.success:
+        return this.renderSuccessView()
+      case apiStatusConstants.failure:
+        return this.renderFailureView()
       default:
         return null
     }
   }
-
-  return <div className="app">{renderView()}</div>
 }
 
 export default App
